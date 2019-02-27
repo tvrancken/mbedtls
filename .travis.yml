@@ -9,39 +9,67 @@ cache: ccache
 branches:
   except:
   - development-psa
-  - coverity_scan
 
-script:
-- tests/scripts/recursion.pl library/*.c
-- tests/scripts/check-generated-files.sh
-- tests/scripts/check-doxy-blocks.pl
-- tests/scripts/check-names.sh
-- tests/scripts/check-files.py
-- tests/scripts/doxygen.sh
-- cmake -D CMAKE_BUILD_TYPE:String="Check" .
-- make
-- make test
-- programs/test/selftest
-- OSSL_NO_DTLS=1 tests/compat.sh
-- tests/ssl-opt.sh -e '\(DTLS\|SCSV\).*openssl'
-- tests/scripts/test-ref-configs.pl
-- tests/scripts/curves.pl
-- tests/scripts/key-exchanges.pl
+jobs:
+  include:
+    - stage: "Source code quality checks"
+      script: ./tests/scripts/recursion.pl library/*.c
+      script: ./tests/scripts/check-generated-files.sh
+      script: ./tests/scripts/check-doxy-blocks.pl
+      script: ./tests/scripts/check-names.sh
+      script: ./tests/scripts/check-files.py
+      script: ./tests/scripts/doxygen.sh
+    - stage: "Create buildfiles"
+      env: CC=gcc
+      script: cmake -D CMAKE_BUILD_TYPE:String="Check" .
+      script: make
+      script: make test
+      script: ./programs/test/selftest
+      script: OSSL_NO_DTLS=1 ./tests/compat.sh
+      script: ./tests/ssl-opt.sh -e '\(DTLS\|SCSV\).*openssl'
+    - stage: "Reference configurations"
+      env: CC=gcc
+      script: ./tests/scripts/test-ref-configs.pl
+      script: ./ests/scripts/curves.pl
+      script: ./ests/scripts/key-exchanges.pl
+    - stage: "Create buildfiles"
+      env: CC=clang
+      script: cmake -D CMAKE_BUILD_TYPE:String="Check" .
+      script: make
+      script: make test
+      script: ./programs/test/selftest
+      script: OSSL_NO_DTLS=1 ./tests/compat.sh
+      script: ./tests/ssl-opt.sh -e '\(DTLS\|SCSV\).*openssl'
+    - stage: "Reference configurations"
+      env: CC=clang
+      script: ./tests/scripts/test-ref-configs.pl
+      script: ./ests/scripts/curves.pl
+      script: ./ests/scripts/key-exchanges.pl
+
+
 after_failure:
 - tests/scripts/travis-log-failure.sh
+
 env:
   global:
-    secure: "barHldniAfXyoWOD/vcO+E6/Xm4fmcaUoC9BeKW+LwsHqlDMLvugaJnmLXkSpkbYhVL61Hzf3bo0KPJn88AFc5Rkf8oYHPjH4adMnVXkf3B9ghHCgznqHsAH3choo6tnPxaFgOwOYmLGb382nQxfE5lUdvnM/W/psQjWt66A1+k="
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "KRySF/N654nGJW6WHmM3vUikiGFJJ39dT4GkjlxXI+YFaq69OGYzI5Vdz3vb3w6CvIGYL67MsWsoEwAeZopKWOEiogfvUL6NumVxpGQm1+O/tH34dHq1wHHo02SQd50I18AXAvttzEr31YhL/47RUJTJvlZnU/0u/9RL5Qbuc1k="
+
+before_install:
+  - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
 
 addons:
   apt:
     packages:
     - doxygen
     - graphviz
+
   coverity_scan:
     project:
       name: "ARMmbed/mbedtls"
+      description: "TLS library"
     notification_email: simon.butcher@arm.com
-    build_command_prepend:
-    build_command: make
+    build_command_prepend: "perl scripts/config.pl full"
+    build_command: "make"
     branch_pattern: coverity_scan
