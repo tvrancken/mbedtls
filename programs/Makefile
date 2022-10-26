@@ -116,11 +116,13 @@ APPS = \
 	ssl/mini_client \
 	ssl/ssl_client1 \
 	ssl/ssl_client2 \
+	ssl/ssl_client_rawpk \
 	ssl/ssl_context_info \
 	ssl/ssl_fork_server \
 	ssl/ssl_mail_client \
 	ssl/ssl_server \
 	ssl/ssl_server2 \
+	ssl/ssl_server_rawpk \
 	test/benchmark \
 	test/query_compile_time_config \
 	test/selftest \
@@ -350,6 +352,10 @@ ssl/ssl_client2$(EXEXT): ssl/ssl_client2.c $(SSL_TEST_DEPS)
 	echo "  CC    ssl/ssl_client2.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_client2.c $(SSL_TEST_OBJECTS) $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
+ssl/ssl_client_rawpk$(EXEXT): ssl/ssl_client_rawpk.c $(SSL_TEST_DEPS)
+	echo "  CC    ssl/ssl_client_rawpk.c"
+	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_client_rawpk.c $(SSL_TEST_OBJECTS) $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
+
 ssl/ssl_server$(EXEXT): ssl/ssl_server.c $(DEP)
 	echo "  CC    ssl/ssl_server.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_server.c   $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
@@ -357,6 +363,10 @@ ssl/ssl_server$(EXEXT): ssl/ssl_server.c $(DEP)
 ssl/ssl_server2$(EXEXT): ssl/ssl_server2.c $(SSL_TEST_DEPS)
 	echo "  CC    ssl/ssl_server2.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_server2.c $(SSL_TEST_OBJECTS) $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
+
+ssl/ssl_server_rawpk$(EXEXT): ssl/ssl_server_rawpk.c $(SSL_TEST_DEPS)
+	echo "  CC    ssl/ssl_server_rawpk.c"
+	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_server_rawpk.c $(SSL_TEST_OBJECTS) $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
 ssl/ssl_context_info$(EXEXT): ssl/ssl_context_info.c test/query_config.o test/query_config.h $(DEP)
 	echo "  CC    ssl/ssl_context_info.c"

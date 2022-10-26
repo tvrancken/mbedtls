@@ -11,11 +11,13 @@ set(executables
     mini_client
     ssl_client1
     ssl_client2
+    ssl_client_rawpk
     ssl_context_info
     ssl_fork_server
     ssl_mail_client
     ssl_server
     ssl_server2
+    ssl_server_rawpk
 )
 
 if(GEN_FILES)

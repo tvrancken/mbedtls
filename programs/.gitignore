@@ -52,12 +52,14 @@ ssl/dtls_server
 ssl/mini_client
 ssl/ssl_client1
 ssl/ssl_client2
+ssl/ssl_client_rawpk
 ssl/ssl_context_info
 ssl/ssl_fork_server
 ssl/ssl_mail_client
 ssl/ssl_pthread_server
 ssl/ssl_server
 ssl/ssl_server2
+ssl/ssl_server_rawpk
 test/benchmark
 test/cpp_dummy_build
 test/cpp_dummy_build.cpp
