@@ -1614,6 +1614,33 @@
 #define MBEDTLS_SSL_ALPN
 
 /**
+ * \def MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION
+ *
+ * Enable support for RFC 7250 Client Certificate Type Negotiation.
+ *
+ * Comment this macro to disable support for Client Certificate Type Negotiation.
+ */
+#define MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION
+
+/**
+ * \def MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION
+ *
+ * Enable support for RFC 7250 Server Certificate Type Negotiation.
+ *
+ * Comment this macro to disable support for Server Certificate Type Negotiation.
+ */
+#define MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION
+
+/**
+ * \def MBEDTLS_SSL_RAW_PUBLIC_KEYS
+ *
+ * Enable support for RFC 7250 Raw Public-keys.
+ *
+ * Comment this macro to disable support for Raw Public-keys.
+ */
+#define MBEDTLS_SSL_RAW_PUBLIC_KEYS
+
+/**
  * \def MBEDTLS_SSL_DTLS_ANTI_REPLAY
  *
  * Enable support for the anti-replay mechanism in DTLS.
