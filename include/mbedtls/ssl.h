@@ -470,6 +470,19 @@
 #define MBEDTLS_SSL_CERT_TYPE_ECDSA_SIGN    64
 
 /*
+ * TLS Certificate Types
+ * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#tls-extensiontype-values-3
+ *
+ * Note: keep mbedtls_ssl_cert_type_to_str() in ssl_misc.h in sync with
+ * this list.
+ */
+#define MBEDTLS_SSL_CERT_TYPE_X509          0
+#define MBEDTLS_SSL_CERT_TYPE_OPENPGP       1
+#define MBEDTLS_SSL_CERT_TYPE_RAWPUBLICKEY  2
+#define MBEDTLS_SSL_CERT_TYPE_1609DOT2      3
+#define MBEDTLS_SSL_CERT_TYPE_KRB           224
+
+/*
  * Message, alert and handshake types
  */
 #define MBEDTLS_SSL_MSG_CHANGE_CIPHER_SPEC     20
@@ -786,6 +799,7 @@ typedef int mbedtls_ssl_get_timer_t( void * ctx );
 typedef struct mbedtls_ssl_session mbedtls_ssl_session;
 typedef struct mbedtls_ssl_context mbedtls_ssl_context;
 typedef struct mbedtls_ssl_config  mbedtls_ssl_config;
+typedef struct mbedtls_ssl_octet_list_t mbedtls_ssl_octet_list_t;
 
 /* Defined in library/ssl_misc.h */
 typedef struct mbedtls_ssl_transform mbedtls_ssl_transform;
@@ -797,6 +811,17 @@ typedef struct mbedtls_ssl_key_cert mbedtls_ssl_key_cert;
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
 typedef struct mbedtls_ssl_flight_item mbedtls_ssl_flight_item;
 #endif
+
+/**
+ * \brief Structure that can hold an arbitrary sequence of octets
+ *        together with its size (i.e., the number of octets in
+ *        the sequence).
+ *
+ */
+struct mbedtls_ssl_octet_list_t {
+    uint8_t* octets;
+    size_t   size;
+};
 
 /**
  * \brief          Callback type: server-side session cache getter
@@ -1205,6 +1230,14 @@ struct mbedtls_ssl_session
 #if defined(MBEDTLS_SSL_PROTO_TLS1_3)
     mbedtls_ssl_tls13_application_secrets MBEDTLS_PRIVATE(app_secrets);
 #endif
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    uint8_t client_cert_type;   /*!< RFC7250 client certificate type */
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    uint8_t server_cert_type;   /*!< RFC7250 server certificate type */
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 };
 
 /*
@@ -1450,6 +1483,12 @@ struct mbedtls_ssl_config
     const int *MBEDTLS_PRIVATE(sig_hashes);         /*!< allowed signature hashes           */
 #endif
     const uint16_t *MBEDTLS_PRIVATE(sig_algs);      /*!< allowed signature algorithms       */
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    const mbedtls_ssl_octet_list_t* MBEDTLS_PRIVATE(client_cert_types); /*!< ordered list of allowed client certificate types       */
+#endif
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    const mbedtls_ssl_octet_list_t* MBEDTLS_PRIVATE(server_cert_types); /*!< ordered list of allowed server certificate types       */
+#endif
 #endif
 
 #if defined(MBEDTLS_ECP_C) && !defined(MBEDTLS_DEPRECATED_REMOVED)
@@ -3644,6 +3683,34 @@ void MBEDTLS_DEPRECATED mbedtls_ssl_conf_sig_hashes( mbedtls_ssl_config *conf,
  */
 void mbedtls_ssl_conf_sig_algs( mbedtls_ssl_config *conf,
                                 const uint16_t* sig_algs );
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+/**
+ * \brief          Configure allowed and the prefered order of the client certificate types
+ *
+ * \param conf     The SSL configuration to use.
+ * \param sig_algs List of allowed IANA values for TLS Certificate Types.
+ *                 The list must remain available throughout the lifetime
+ *                 of the conf object. Supported values are available
+ *                 as \c MBEDTLS_SSL_CERT_TYPE_XXXX
+ */
+void mbedtls_ssl_conf_cli_cert_types( mbedtls_ssl_config *conf,
+                                      const mbedtls_ssl_octet_list_t* cert_types );
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+/**
+ * \brief          Configure allowed and the prefered order of the server certificate types
+ *
+ * \param conf     The SSL configuration to use.
+ * \param sig_algs List of allowed IANA values for TLS Certificate Types.
+ *                 The list must remain available throughout the lifetime
+ *                 of the conf object. Supported values are available
+ *                 as \c MBEDTLS_SSL_CERT_TYPE_XXXX
+ */
+void mbedtls_ssl_conf_srv_cert_types( mbedtls_ssl_config *conf,
+                                      const mbedtls_ssl_octet_list_t* cert_types );
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 #endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
