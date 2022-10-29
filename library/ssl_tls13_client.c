@@ -1728,6 +1728,30 @@ static int ssl_tls13_parse_server_hello( mbedtls_ssl_context *ssl,
                 }
                 break;
 
+#if defined(MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED)
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+        case MBEDTLS_TLS_EXT_CLI_CERT_TYPE:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "found client_certificate_type negotiation extension" ) );
+
+            if( ( ret = mbedtls_ssl_parse_cli_cert_type_neg_ext( ssl, p, extension_data_end ) ) != 0 ) {
+                MBEDTLS_SSL_DEBUG_RET(1, ( "mbedtls_ssl_parse_cli_cert_type_neg_ext" ), ret );
+                return( ret );
+            }
+            break;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+        case MBEDTLS_TLS_EXT_SRV_CERT_TYPE:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "found server_certificate_type negotiation extension" ) );
+
+            if( ( ret = mbedtls_ssl_parse_srv_cert_type_neg_ext( ssl, p, extension_data_end ) ) != 0 ) {
+                MBEDTLS_SSL_DEBUG_RET(1, ( "mbedtls_ssl_parse_srv_cert_type_neg_ext" ), ret );
+                return( ret );
+            }
+            break;
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+#endif
+
             default:
                 MBEDTLS_SSL_DEBUG_MSG(
                     3,

@@ -1649,6 +1649,36 @@ static int ssl_tls13_parse_client_hello( mbedtls_ssl_context *ssl,
                 }
                 ssl->handshake->extensions_present |= MBEDTLS_SSL_EXT_SIG_ALG;
                 break;
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+            case MBEDTLS_TLS_EXT_CLI_CERT_TYPE:
+                MBEDTLS_SSL_DEBUG_MSG( 3, ( "found client_certificate_type negotiation extension" ) );
+
+                ret = mbedtls_ssl_parse_cli_cert_type_neg_ext( ssl, p, extension_data_end );
+
+                if( ret != 0 ) {
+                    MBEDTLS_SSL_DEBUG_RET(1, ( "mbedtls_ssl_parse_cli_cert_type_neg_ext" ), ret );
+                    return( ret );
+                }
+
+                ssl->handshake->extensions_present |= MBEDTLS_SSL_EXT_CLI_CERT_TYPE;
+                break;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+            case MBEDTLS_TLS_EXT_SERV_CERT_TYPE:
+                MBEDTLS_SSL_DEBUG_MSG( 3, ( "found server_certificate_type_negotiation extension" ) );
+
+                ret = mbedtls_ssl_parse_srv_cert_type_neg_ext( ssl, p, extension_data_end );
+
+                if( ret != 0 ) {
+                    MBEDTLS_SSL_DEBUG_RET(1, ( "mbedtls_ssl_parse_srv_cert_type_neg_ext" ), ret );
+                    return( ret );
+                }
+
+                ssl->handshake->extensions_present |= MBEDTLS_SSL_EXT_SRV_CERT_TYPE;
+                break;
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 #endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
             default:
@@ -2153,6 +2183,26 @@ static int ssl_tls13_write_server_hello_body( mbedtls_ssl_context *ssl,
             return( ret );
         p += output_len;
     }
+
+#if defined(MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED)
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    if( ( ret = mbedtls_ssl_write_cli_cert_type_neg_ext( ssl, p, end, &output_len ) ) != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_write_cli_cert_type_neg_ext", ret );
+        return( ret );
+    }
+    p += output_len;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    if( ( ret = mbedtls_ssl_write_srv_cert_type_neg_ext( ssl, p, end, &output_len ) ) != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_write_srv_cert_type_neg_ext", ret );
+        return( ret );
+    }
+    p += output_len;
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+#endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
 #if defined(MBEDTLS_KEY_EXCHANGE_SOME_PSK_ENABLED)
     if( !is_hrr && mbedtls_ssl_tls13_key_exchange_mode_with_psk( ssl ) )

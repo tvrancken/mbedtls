@@ -1963,6 +1963,8 @@ mbedtls_ssl_mode_t mbedtls_ssl_get_mode_from_ciphersuite(
  *            case client: ClientOnlyData;
  *            case server: uint64 start_time;
  *        };
+ *       uint8 client_cert_type;
+ *       uint8 server_cert_type;
  *     } serialized_session_tls13;
  *
  */
@@ -2067,6 +2069,17 @@ static int ssl_tls13_session_save( const mbedtls_ssl_session *session,
         }
     }
 #endif /* MBEDTLS_SSL_CLI_C */
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    *p = session->client_cert_type;
+    p++;
+#endif
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    *p = session->server_cert_type;
+    p++;
+#endif
+
     return( 0 );
 }
 
@@ -2160,6 +2173,22 @@ static int ssl_tls13_session_load( mbedtls_ssl_session *session,
         }
     }
 #endif /* MBEDTLS_SSL_CLI_C */
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    if( end - p < 1 )
+        return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+
+    session->client_cert_type = p[0];
+    p++;
+#endif
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    if( end - p < 1 )
+        return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+
+    session->server_cert_type = p[0];
+    p++;
+#endif
 
     return( 0 );
 
@@ -2410,6 +2439,24 @@ void mbedtls_ssl_conf_sig_algs( mbedtls_ssl_config *conf,
 #endif /* !MBEDTLS_DEPRECATED_REMOVED */
     conf->sig_algs = sig_algs;
 }
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+/* Configure allowed and prefered client certificate types */
+void mbedtls_ssl_conf_cli_cert_types( mbedtls_ssl_config *conf,
+                                      const mbedtls_ssl_octet_list_t* cert_types )
+{
+    conf->client_cert_types = cert_types;
+}
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+/* Configure allowed and prefered server certificate types */
+void mbedtls_ssl_conf_srv_cert_types( mbedtls_ssl_config *conf,
+                                      const mbedtls_ssl_octet_list_t* cert_types )
+{
+    conf->server_cert_types = cert_types;
+}
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 #endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
 #if defined(MBEDTLS_ECP_C)
@@ -3593,6 +3640,18 @@ void mbedtls_ssl_handshake_free( mbedtls_ssl_context *ssl )
         mbedtls_free( (void*) handshake->certificate_request_context );
     }
 #endif /* MBEDTLS_SSL_PROTO_TLS1_3 */
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    if( ssl->handshake->proposed_cli_cert_types.octets ) {
+        mbedtls_free( (void*) ssl->handshake->proposed_cli_cert_types.octets );
+        ssl->handshake->proposed_cli_cert_types.octets = NULL;
+    }
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    if( ssl->handshake->proposed_srv_cert_types.octets ) {
+        mbedtls_free( (void*) ssl->handshake->proposed_srv_cert_types.octets );
+        ssl->handshake->proposed_srv_cert_types.octets = NULL;
+    }
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 #endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
 #if defined(MBEDTLS_SSL_ASYNC_PRIVATE)
@@ -4640,6 +4699,30 @@ static int ssl_check_no_sig_alg_duplication( uint16_t * sig_algs )
     return( ret );
 }
 
+/*
+ * Default enabled TLS Certificate Types
+ * Used when negotiating client/server certificate types (RFC7250)
+ */
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+static uint8_t ssl_tls_default_cli_cert_types_list[] = {
+    MBEDTLS_SSL_CERT_TYPE_X509
+};
+
+static mbedtls_ssl_octet_list_t ssl_tls_default_cli_cert_types = {
+    (uint8_t*) ssl_tls_default_cli_cert_types_list, sizeof(ssl_tls_default_cli_cert_types_list)
+};
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+static uint8_t ssl_tls_default_srv_cert_types_list[] = {
+    MBEDTLS_SSL_CERT_TYPE_X509
+};
+
+static mbedtls_ssl_octet_list_t ssl_tls_default_srv_cert_types = {
+    (uint8_t*) ssl_tls_default_srv_cert_types_list, sizeof(ssl_tls_default_srv_cert_types_list)
+};
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+
 #endif /* MBEDTLS_DEBUG_C && MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
 /*
@@ -4792,6 +4875,15 @@ int mbedtls_ssl_config_defaults( mbedtls_ssl_config *conf,
         return( MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE );
 #endif
     }
+
+    /* Default certificate types */
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    conf->client_cert_types = &ssl_tls_default_cli_cert_types;
+#endif
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    conf->server_cert_types = &ssl_tls_default_srv_cert_types;
+#endif
 
     /*
      * Preset-specific defaults
@@ -6296,7 +6388,7 @@ int mbedtls_ssl_write_certificate( mbedtls_ssl_context *ssl )
      */
     i = 7;
     crt = mbedtls_ssl_own_cert( ssl );
-
+//TODO rawpk
     while( crt != NULL )
     {
         n = crt->raw.len;
@@ -8193,6 +8285,8 @@ unsigned int mbedtls_ssl_tls12_get_preferred_hash_for_sig_alg(
  *    uint32 ticket_lifetime;
  *    uint8 mfl_code;                 // up to 255 according to standard
  *    uint8 encrypt_then_mac;         // 0 or 1
+ *    uint8 client_cert_type;         // IANA TLS cert type value (0..255)
+ *    uint8 server_cert_type;         // IANA TLS cert type value (0..255)
  * } serialized_session_tls12;
  *
  */
@@ -8339,6 +8433,16 @@ static size_t ssl_tls12_session_save( const mbedtls_ssl_session *session,
 
     if( used <= buf_len )
         *p++ = MBEDTLS_BYTE_0( session->encrypt_then_mac );
+#endif
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    if( used <= buf_len )
+        *p++ = MBEDTLS_BYTE_0( session->client_cert_type );
+#endif
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    if( used <= buf_len )
+        *p++ = MBEDTLS_BYTE_0( session->server_cert_type );
 #endif
 
     return( used );
@@ -8535,6 +8639,20 @@ static int ssl_tls12_session_load( mbedtls_ssl_session *session,
     session->encrypt_then_mac = *p++;
 #endif
 
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    if( 1 > (size_t)( end - p ) )
+        return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+
+    session->client_cert_type = *p++;
+#endif
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    if( 1 > (size_t)( end - p ) )
+        return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+
+    session->server_cert_type = *p++;
+#endif
+
     /* Done, should have consumed entire buffer */
     if( p != end )
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
@@ -8685,6 +8803,586 @@ int mbedtls_ssl_write_sig_alg_ext( mbedtls_ssl_context *ssl, unsigned char *buf,
 #endif /* MBEDTLS_SSL_PROTO_TLS1_3 */
     return( 0 );
 }
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_write_cli_cert_type_neg_ext( mbedtls_ssl_context *ssl,
+                                             unsigned char *buf,
+                                             unsigned char *end,
+                                             size_t *out_len )
+{
+    uint8_t i, num_cert_types; // Inv: 0 <= num cert types < 256
+    uint8_t supported_cert_types[256]; // The list with supported (IANA) cert types. Inv: 0 <= cert type Id < 256
+    uint8_t num_supported_cert_types = 0;
+    unsigned int total_ext_length = 0;
+
+    /* By default we send nothing */
+    *out_len = 0;
+
+    if( ssl->conf->endpoint == MBEDTLS_SSL_IS_CLIENT ) {
+        /* Client mode:
+         * We propose the desired client certificate types
+         * to the server in order of preference.
+         */
+        MBEDTLS_SSL_DEBUG_MSG( 3, ( "client hello, adding client_certificate_type extension" ) );
+
+        /* 1) Get the number of cert types set
+         */
+        num_cert_types = (uint8_t) ssl->conf->client_cert_types->size;
+
+        /* 2a) If only the default cert type is set, we don't send this
+         *     extension. This is according to spec (RFC7250).
+         */
+        if( num_cert_types == 1 && ssl->conf->client_cert_types->octets[0] == MBEDTLS_SSL_CERT_TYPE_X509 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Only the default client certificate type was set."
+                                        "Therefore, we don't send this extension." ) );
+
+            return( 0 );
+        }
+
+        /* 2b) If we have one non-default cert type set or we have
+         *     multiple cert types set, we check which types are
+         *     actually supported.
+         */
+        for( i = 0; i < num_cert_types; i++ ) {
+            /* Check whether the prefered cert type is also supported.
+             * Supported means that we have actual credentials set for
+             * this cert type.
+             */
+            if( mbedtls_ssl_is_cert_type_supported( ssl, ssl->conf->client_cert_types->octets[i], 0 ) ) {
+                supported_cert_types[num_supported_cert_types] = ssl->conf->client_cert_types->octets[i];
+                num_supported_cert_types++;
+
+                MBEDTLS_SSL_DEBUG_MSG( 3, ( "Added one supported client certificate type (%s) to the list.",
+                                            mbedtls_ssl_cert_type_to_str( ssl->conf->client_cert_types->octets[i] ) ) );
+            }
+        }
+
+        /* 3) We check whether we have no supported cert types or that we only
+         * have the default cert type left. In either case, we don't send
+         * this extension. This is according to spec (RFC7250).
+         */
+        if( num_supported_cert_types == 0 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Client certificate types were set but none of them is supported. You might "
+                                        "want to check the credentials that were set.\n We don't send this extension." ) );
+
+            return( 0 );
+        } else if( num_supported_cert_types == 1 && supported_cert_types[0] == MBEDTLS_SSL_CERT_TYPE_X509 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Only the default client certificate type (X.509) is supported.\n"
+                                        "Therefore, we don't send this extension." ) );
+
+            return( 0 );
+        }
+
+        /* 4) We have non-default supported certificates to advertise.
+         *    We are going to send these to the server.
+         *    Our message looks as follows:
+         *
+         *    - extension type                  (2 bytes)
+         *    - extension data length in bytes  (2 bytes)
+         *    - number of advertised cert types (1 byte)
+         *    - cert types                      (0 <= #bytes <= 255)
+         *
+         *    The extension data length equals 1 + num_supported_cert_types
+         */
+
+        /* Check if we have enough space available */
+        total_ext_length = 2 + 2 + 1 + num_supported_cert_types;
+        MBEDTLS_SSL_CHK_BUF_PTR( buf, end, total_ext_length );
+
+        /* Write the extension header */
+        MBEDTLS_PUT_UINT16_BE( MBEDTLS_TLS_EXT_CLI_CERT_TYPE, buf, 0 );
+        MBEDTLS_PUT_UINT16_BE( 1 + num_supported_cert_types, buf, 2 );
+
+        /* Write the extension data */
+        buf[4] = num_supported_cert_types;
+
+        for( i = 0; i < num_supported_cert_types; i++ ) {
+            buf[5 + i] = supported_cert_types[i];
+        }
+
+        /* Store the list with sent items in order to be able
+         * to check them later when we receive a confirmation
+         * from the server. The list will be free by mbedtls_ssl_handshake_free()
+         */
+        ssl->handshake->proposed_cli_cert_types.octets = mbedtls_calloc( num_supported_cert_types, 1 );
+
+        if( ssl->handshake->proposed_cli_cert_types.octets == NULL ) {
+            return( MBEDTLS_ERR_SSL_ALLOC_FAILED );
+        }
+
+        memcpy( ssl->handshake->proposed_cli_cert_types.octets, &supported_cert_types, num_supported_cert_types );
+        ssl->handshake->proposed_cli_cert_types.size = num_supported_cert_types;
+
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Sending the list with %d client certificate types.",
+                                    num_supported_cert_types ) );
+
+        *out_len = total_ext_length;
+
+#if defined(MBEDTLS_SSL_PROTO_TLS1_3)
+        ssl->handshake->extensions_present |= MBEDTLS_SSL_EXT_CLI_CERT_TYPE;
+#endif /* MBEDTLS_SSL_PROTO_TLS1_3 */
+
+        return( 0 );
+
+    } else {
+        /* Server mode:
+         * Only respond if we received this extension from the client.
+         *
+         * TLS 1.2:
+         * Check whether we are going to send a certificate request,
+         * otherwise omit the response. This is conform spec.
+         * (RFC7250, 4.2 case 3.).
+         *
+         * TLS 1.3:
+         * TLS 1.3 supports post-handshake authentication for the client.
+         * It means that a server can ask for a client certificate anytime
+         * after the handshake. In order for this to work we must always
+         * complete the certificate type negotiation and therefore respond
+         * with a cert type message.
+         */
+        if( !(ssl->handshake->cli_exts & MBEDTLS_SSL_EXT_CLI_CERT_TYPE) ) {
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "server hello, don't send client_certificate_type extension "
+                                        "because we didn't receive it from the client." ) );
+
+            return( 0 );
+        }
+
+        if( ssl->conf->authmode != MBEDTLS_SSL_VERIFY_NONE ||
+            ssl->session_negotiate->tls_version == MBEDTLS_SSL_VERSION_TLS1_3 ) {
+            /* Retrieve negotiated client certificate type and send it to
+             * the client.
+             * The scenario where we want to send a certificate request but
+             * do not have a matching certificate does not occur because we
+             * already terminate the connection at reception of this extension
+             * when we cannot find a matching client certificate. This is conform
+             * spec (RFC7250, 4.2 case 2.).
+             *
+             * Our message looks as follows:
+             *
+             *    - extension type                  (2 bytes)
+             *    - extension data length in bytes  (2 bytes)
+             *    - negotiated client cert type     (1 byte)
+             *
+             */
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "server hello, adding client_certificate_type extension" ) );
+
+            /* Check if we have enough space available */
+            total_ext_length = 2 + 2 + 1;
+            MBEDTLS_SSL_CHK_BUF_PTR( buf, end, total_ext_length );
+
+            /* Write the extension header */
+            MBEDTLS_PUT_UINT16_BE( MBEDTLS_TLS_EXT_CLI_CERT_TYPE, buf, 0 );
+            MBEDTLS_PUT_UINT16_BE( 1, buf, 2 );
+
+            /* Write the extension data */
+            buf[4] = ssl->session_negotiate->client_cert_type;
+
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Confirming to use a %s client certificate type.",
+                                        mbedtls_ssl_cert_type_to_str( ssl->session_negotiate->client_cert_type ) ) );
+
+            *out_len = total_ext_length;
+        } else {
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "server hello, don't add the client_certificate_type extension "
+                                        "because we are not requesting a client certificate." ) );
+        }
+
+        return( 0 );
+    }
+}
+
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_parse_cli_cert_type_neg_ext( mbedtls_ssl_context *ssl,
+                                             const unsigned char *buf,
+                                             const unsigned char *end )
+{
+    uint8_t i, num_cert_types; // Inv: 0 <= num cert types < 256
+    uint8_t cert_type;
+    uint8_t found;
+    const unsigned char* p = buf;
+
+    MBEDTLS_SSL_DEBUG_MSG( 3, ( "Parse client_certificate_type extension" ) );
+
+    /* 1) Read and process the certificate types */
+    if( ssl->conf->endpoint == MBEDTLS_SSL_IS_SERVER ) {
+        /* Server mode:
+         * We receive a list of supported certificate types that the client
+         * is able to provide when requested via a client certificate
+         * request. This list is sorted by order of client preference.
+         * We now check in this order of preference whether we support any
+         * of these certificate types. We later send our choice back to
+         * the client in the Server Hello.
+         *
+         * The extension header is already chopped off here.
+         * We only need to read the rest of our message:
+         *
+         * - number of advertised cert types (1 byte)
+         * - cert types                      (0 <= #bytes <= 255)
+         */
+        MBEDTLS_SSL_CHK_BUF_READ_PTR( p, end, 1 );
+
+        num_cert_types = p[0];
+        p++;
+
+        MBEDTLS_SSL_DEBUG_MSG( 3, ( "Received %d certificate types.", num_cert_types ) );
+
+        MBEDTLS_SSL_CHK_BUF_READ_PTR( p, end, num_cert_types );
+
+        for( i = 0; i < num_cert_types; i++ ) {
+            cert_type = p[0];
+
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "Received certificate type (%s). Checking compatibility...",
+                                         mbedtls_ssl_cert_type_to_str( cert_type )
+                                      )
+                                 );
+
+            if( mbedtls_ssl_is_cert_type_supported( ssl, cert_type, 0 ) ) {
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "Found compatible client certificate type" ) );
+
+                mbedtls_ssl_set_client_certificate_type( ssl, cert_type );
+
+                return( 0 );
+            }
+
+            p++;
+        }
+
+        /* If no supported certificate type can be found we terminate
+         * with a fatal alert of type "unsupported_certificate"
+         * (according to specification rfc7250).
+         */
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "No supported client certificate type was found. "
+                                    "Aborting connection..." ) );
+        return( MBEDTLS_SSL_ALERT_MSG_UNSUPPORTED_CERT );
+    } else {
+        /* Client mode:
+         * Only if we sent this extension, we should receive exactly
+         * one cert type from the server who picked one from the list
+         * that we proposed earlier. We perform an extra check to see
+         * whether the confirmation from the server is actually in our
+         * proposed list.
+         *
+         * The extension header is already chopped off here.
+         * We only need to read the rest of our message:
+         *
+         * - cert type (1 byte)
+         */
+        if( ssl->handshake->proposed_cli_cert_types.size == 0 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "We received a client certificate type confirmation "
+                                        "from the server without us having sent this extension.\n"
+                                        "Aborting..." ) );
+
+            return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE );
+        }
+
+        MBEDTLS_SSL_CHK_BUF_READ_PTR( p, end, 1 );
+
+        cert_type = p[0];
+        found     = 0;
+
+        for( i = 0; i < ssl->handshake->proposed_cli_cert_types.size; i++ ) {
+            if( ssl->handshake->proposed_cli_cert_types.octets[i] == cert_type ) {
+                found = 1;
+                break;
+            }
+        }
+
+        if( !found ) {
+            return( MBEDTLS_SSL_ALERT_MSG_UNSUPPORTED_CERT );
+        }
+
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Server confirmed to use client certificate type (%s)",
+                                    mbedtls_ssl_cert_type_to_str( cert_type ) ) );
+
+        mbedtls_ssl_set_client_certificate_type( ssl, cert_type );
+
+        return( 0 );
+    }
+}
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_write_srv_cert_type_neg_ext( mbedtls_ssl_context *ssl,
+                                             unsigned char *buf,
+                                             unsigned char *end,
+                                             size_t *out_len )
+{
+    uint8_t i, num_cert_types; // Inv: 0 <= num cert types < 256
+    uint8_t supported_cert_types[256]; // The list with supported (IANA) cert types. Inv: 0 <= cert type Id < 256
+    uint8_t num_supported_cert_types = 0;
+    unsigned int total_ext_length = 0;
+
+    /* By default we send nothing */
+    *out_len = 0;
+
+    if( ssl->conf->endpoint == MBEDTLS_SSL_IS_CLIENT ) {
+        /* Client mode:
+         * We propose the desired server certificate types
+         * to the server in order of preference.
+         */
+        MBEDTLS_SSL_DEBUG_MSG( 3, ( "client hello, adding server_certificate_type extension" ) );
+
+        /* 1) Get the number of cert types set
+         */
+        num_cert_types = (uint8_t) ssl->conf->server_cert_types->size;
+
+        /* 2a) If only the default cert type is set, we don't send this
+         *     extension. This is according to spec (RFC7250).
+         */
+        if( num_cert_types == 1 && ssl->conf->server_cert_types->octets[0] == MBEDTLS_SSL_CERT_TYPE_X509 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Only the default server certificate type was set."
+                                        "Therefore, we don't send this extension." ) );
+
+            return( 0 );
+        }
+
+        /* 2b) If we have one non-default cert type set or we have
+         *     multiple cert types set, we check which types are
+         *     actually supported.
+         */
+        for( i = 0; i < num_cert_types; i++ ) {
+            /* Check whether the prefered cert type is also supported.
+             * Supported means that we have actual credentials set for
+             * this cert type.
+             */
+            if( mbedtls_ssl_is_cert_type_supported( ssl, ssl->conf->server_cert_types->octets[i], 1 ) ) {
+                supported_cert_types[num_supported_cert_types] = ssl->conf->server_cert_types->octets[i];
+                num_supported_cert_types++;
+
+                MBEDTLS_SSL_DEBUG_MSG( 3, ( "Added one supported server certificate type (%s) to the list.",
+                                            mbedtls_ssl_cert_type_to_str( ssl->conf->server_cert_types->octets[i] ) ) );
+            }
+        }
+
+        /* 3) We check whether we have no supported cert types or that we only
+         * have the default cert type left. In either case, we don't send
+         * this extension. This is according to spec (RFC7250).
+         */
+        if( num_supported_cert_types == 0 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Server certificate types were set but none of them is supported. You might "
+                                        "want to check the credentials that were set.\n We don't send this extension." ) );
+
+            return( 0 );
+        } else if( num_supported_cert_types == 1 && supported_cert_types[0] == MBEDTLS_SSL_CERT_TYPE_X509 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Only the default server certificate type (X.509) is supported.\n"
+                                        "Therefore, we don't send this extension." ) );
+
+            return( 0 );
+        }
+
+        /* 4) We have non-default supported certificates to advertise.
+         *    We are going to send these to the server.
+         *    Our message looks as follows:
+         *
+         *    - extension type                  (2 bytes)
+         *    - extension data length in bytes  (2 bytes)
+         *    - number of advertised cert types (1 byte)
+         *    - cert types                      (0 <= #bytes <= 255)
+         *
+         *    The extension data length equals 1 + num_supported_cert_types
+         */
+
+        /* Check if we have enough space available */
+        total_ext_length = 2 + 2 + 1 + num_supported_cert_types;
+        MBEDTLS_SSL_CHK_BUF_PTR( buf, end, total_ext_length );
+
+        /* Write the extension header */
+        MBEDTLS_PUT_UINT16_BE( MBEDTLS_TLS_EXT_CLI_CERT_TYPE, buf, 0 );
+        MBEDTLS_PUT_UINT16_BE( 1 + num_supported_cert_types, buf, 2 );
+
+        /* Write the extension data */
+        buf[4] = num_supported_cert_types;
+
+        for( i = 0; i < num_supported_cert_types; i++ ) {
+            buf[5 + i] = supported_cert_types[i];
+        }
+
+        /* Store the list with sent items in order to be able
+         * to check them later when we receive a confirmation
+         * from the server. The list will be free by mbedtls_ssl_handshake_free()
+         */
+        ssl->handshake->proposed_srv_cert_types.octets = mbedtls_calloc( num_supported_cert_types, 1 );
+
+        if( ssl->handshake->proposed_srv_cert_types.octets == NULL ) {
+            return( MBEDTLS_ERR_SSL_ALLOC_FAILED );
+        }
+
+        memcpy( ssl->handshake->proposed_srv_cert_types.octets, &supported_cert_types, num_supported_cert_types );
+        ssl->handshake->proposed_srv_cert_types.size = num_supported_cert_types;
+
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Sending the list with %d server certificate types.",
+                                    num_supported_cert_types ) );
+
+        *out_len = total_ext_length;
+
+#if defined(MBEDTLS_SSL_PROTO_TLS1_3)
+        ssl->handshake->extensions_present |= MBEDTLS_SSL_EXT_SERV_CERT_TYPE;
+#endif /* MBEDTLS_SSL_PROTO_TLS1_3 */
+
+        return( 0 );
+
+    } else {
+        /* Server mode:
+         * Only respond if we received this extension from the client.
+         * We confirm our choice for a server cert type to the client or
+         * abort with an alert.
+         */
+        if( !(ssl->handshake->cli_exts & MBEDTLS_SSL_EXT_SERV_CERT_TYPE) ) {
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "server hello, don't send server_certificate_type extension "
+                                        "because we didn't receive it from the client." ) );
+
+            return( 0 );
+        }
+
+        /* Retrieve negotiated server certificate type and send it to
+         * the client.
+         * The scenario where we want to send a certificate type but
+         * do not have a matching certificate does not occur because we
+         * already terminate the connection at reception of this extension
+         * when we cannot find a matching server certificate. This is conform
+         * spec (RFC7250, 4.2 case 2.).
+         *
+         * Our message looks as follows:
+         *
+         *    - extension type                  (2 bytes)
+         *    - extension data length in bytes  (2 bytes)
+         *    - negotiated server cert type     (1 byte)
+         *
+         */
+        MBEDTLS_SSL_DEBUG_MSG( 3, ( "server hello, adding server_certificate_type extension" ) );
+
+        /* Check if we have enough space available */
+        total_ext_length = 2 + 2 + 1;
+        MBEDTLS_SSL_CHK_BUF_PTR( buf, end, total_ext_length );
+
+        /* Write the extension header */
+        MBEDTLS_PUT_UINT16_BE( MBEDTLS_TLS_EXT_SERV_CERT_TYPE, buf, 0 );
+        MBEDTLS_PUT_UINT16_BE( 1, buf, 2 );
+
+        /* Write the extension data */
+        buf[4] = ssl->session_negotiate->server_cert_type;
+
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Confirming to use a %s server certificate type.",
+                                    mbedtls_ssl_cert_type_to_str( ssl->session_negotiate->server_cert_type ) ) );
+
+        *out_len = total_ext_length;
+
+        return( 0 );
+    }
+}
+
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_parse_srv_cert_type_neg_ext( mbedtls_ssl_context *ssl,
+                                             const unsigned char *buf,
+                                             const unsigned char *end )
+{
+    uint8_t i, num_cert_types; // Inv: 0 <= num cert types < 256
+    uint8_t cert_type;
+    uint8_t found;
+    const unsigned char* p = buf;
+
+    MBEDTLS_SSL_DEBUG_MSG( 3, ( "Parse server_certificate_type extension" ) );
+
+    /* 1) Read and process the certificate types */
+    if( ssl->conf->endpoint == MBEDTLS_SSL_IS_SERVER ) {
+        /* Server mode:
+         * We receive a list of supported certificate types that the client
+         * is able to process when sent via a server certificate.
+         * This list is sorted by order of client preference.
+         * We now check in this order of preference whether we support any
+         * of these certificate types. We later send our choice back to
+         * the client in the Server Hello and must also send a certificate
+         * of this type.
+         *
+         * The extension header is already chopped off here.
+         * We only need to read the rest of our message:
+         *
+         * - number of advertised cert types (1 byte)
+         * - cert types                      (0 <= #bytes <= 255)
+         */
+        MBEDTLS_SSL_CHK_BUF_READ_PTR( p, end, 1 );
+
+        num_cert_types = p[0];
+        p++;
+
+        MBEDTLS_SSL_DEBUG_MSG( 3, ( "Received %d certificate types.", num_cert_types ) );
+
+        MBEDTLS_SSL_CHK_BUF_READ_PTR( p, end, num_cert_types );
+
+        for( i = 0; i < num_cert_types; i++ ) {
+            cert_type = p[0];
+
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "Received certificate type (%s). Checking compatibility...",
+                                         mbedtls_ssl_cert_type_to_str( cert_type )
+                                      )
+                                 );
+
+            if( mbedtls_ssl_is_cert_type_supported( ssl, cert_type, 1 ) ) {
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "Found compatible server certificate type" ) );
+
+                mbedtls_ssl_set_server_certificate_type( ssl, cert_type );
+
+                return( 0 );
+            }
+
+            p++;
+        }
+
+        /* If no supported certificate type can be found we terminate
+         * with a fatal alert of type "unsupported_certificate"
+         * (according to specification rfc7250).
+         */
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "No supported server certificate type was found. "
+                                    "Aborting connection..." ) );
+        return( MBEDTLS_SSL_ALERT_MSG_UNSUPPORTED_CERT );
+    } else {
+        /* Client mode:
+         * Only if we sent this extension, we should receive exactly
+         * one cert type from the server who picked one from the list
+         * that we proposed earlier. We perform an extra check to see
+         * whether the confirmation from the server is actually in our
+         * proposed list.
+         *
+         * The extension header is already chopped off here.
+         * We only need to read the rest of our message:
+         *
+         * - cert type (1 byte)
+         */
+        if( ssl->handshake->proposed_srv_cert_types.size == 0 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "We received a server certificate type confirmation "
+                                        "from the server without us having sent this extension.\n"
+                                        "Aborting..." ) );
+
+            return( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE );
+        }
+
+        MBEDTLS_SSL_CHK_BUF_READ_PTR( p, end, 1 );
+
+        cert_type = p[0];
+        found     = 0;
+
+        for( i = 0; i < ssl->handshake->proposed_srv_cert_types.size; i++ ) {
+            if( ssl->handshake->proposed_srv_cert_types.octets[i] == cert_type ) {
+                found = 1;
+                break;
+            }
+        }
+
+        if( !found ) {
+            return( MBEDTLS_SSL_ALERT_MSG_UNSUPPORTED_CERT );
+        }
+
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "Server confirmed to use server certificate type (%s)",
+                                    mbedtls_ssl_cert_type_to_str( cert_type ) ) );
+
+        mbedtls_ssl_set_server_certificate_type( ssl, cert_type );
+
+        return( 0 );
+    }
+}
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+
 #endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
 #if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)

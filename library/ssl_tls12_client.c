@@ -1642,6 +1642,28 @@ static int ssl_parse_server_hello( mbedtls_ssl_context *ssl )
             break;
 #endif /* MBEDTLS_SSL_DTLS_SRTP */
 
+#if defined(MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED)
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+        case MBEDTLS_TLS_EXT_CLI_CERT_TYPE:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "found client certificate type negotiation extension" ) );
+
+            if( ( ret = mbedtls_ssl_parse_cli_cert_type_neg_ext( ssl, ext + 4, ext + 4 + ext_size ) ) != 0 )
+                return( ret );
+
+            break;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+        case MBEDTLS_TLS_EXT_SERV_CERT_TYPE:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "found server certificate type negotiation extension" ) );
+
+            if( ( ret = mbedtls_ssl_parse_srv_cert_type_neg_ext( ssl, ext + 4, ext + 4 + ext_size ) ) != 0 )
+                return( ret );
+
+            break;
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+#endif
+
         default:
             MBEDTLS_SSL_DEBUG_MSG( 3,
                 ( "unknown extension found: %u (ignoring)", ext_id ) );

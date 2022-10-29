@@ -26,6 +26,7 @@
 
 #include "mbedtls/ssl.h"
 #include "mbedtls/cipher.h"
+#include "mbedtls/debug.h"
 
 #if defined(MBEDTLS_USE_PSA_CRYPTO) || defined(MBEDTLS_SSL_PROTO_TLS1_3)
 #include "psa/crypto.h"
@@ -532,7 +533,7 @@ struct mbedtls_ssl_handshake_params
     /* Frequently-used boolean or byte fields (placed early to take
      * advantage of smaller code size for indirect access on Arm Thumb) */
     uint8_t resume;                     /*!<  session resume indicator*/
-    uint8_t cli_exts;                   /*!< client extension presence*/
+    int cli_exts;                       /*!< client extension presence*/
 
 #if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
     uint8_t sni_authmode;               /*!< authmode from SNI callback     */
@@ -855,6 +856,13 @@ struct mbedtls_ssl_handshake_params
                                         /*!<  random bytes            */
     unsigned char premaster[MBEDTLS_PREMASTER_SIZE];
                                         /*!<  premaster secret        */
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    mbedtls_ssl_octet_list_t proposed_cli_cert_types;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    mbedtls_ssl_octet_list_t proposed_srv_cert_types;
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 
 #if defined(MBEDTLS_SSL_PROTO_TLS1_3)
     int extensions_present;             /*!< extension presence; Each bitfield
@@ -1370,6 +1378,53 @@ MBEDTLS_CHECK_RETURN_CRITICAL
 int mbedtls_ssl_conf_has_static_psk( mbedtls_ssl_config const *conf );
 #endif
 
+/* Convert (IANA) certificate type identifiers to strings */
+static inline const char* mbedtls_ssl_cert_type_to_str( uint8_t cert_type )
+{
+    switch( cert_type ) {
+        case MBEDTLS_SSL_CERT_TYPE_X509:
+            return "X.509";
+        case MBEDTLS_SSL_CERT_TYPE_OPENPGP:
+            return "OpenPGP";
+        case MBEDTLS_SSL_CERT_TYPE_RAWPUBLICKEY:
+            return "Raw public-key";
+        case MBEDTLS_SSL_CERT_TYPE_1609DOT2:
+            return "1609.2";
+        case MBEDTLS_SSL_CERT_TYPE_KRB:
+            return "Kerberos";
+        default:
+            return "unknown";
+    }
+}
+
+static inline int
+mbedtls_ssl_is_cert_type_supported( const mbedtls_ssl_context* ssl,
+                                    const uint8_t cert_type, uint8_t target )
+{
+    uint8_t i;
+    const mbedtls_ssl_octet_list_t* cert_types;
+
+    switch( target ) {
+        case 0: // client cert type
+            cert_types = ssl->conf->client_cert_types;
+            break;
+        case 1: // server cert type
+            cert_types = ssl->conf->server_cert_types;
+            break;
+        default:
+            return( 0 );
+    }
+
+    /* Check whether our cert type is in the list */
+    for( i = 0; i < cert_types->size; i++ ) {
+        if( cert_types->octets[i] == cert_type ) {
+            return( 1 );
+        }
+    }
+
+    return( 0 );
+}
+
 #if defined(MBEDTLS_USE_PSA_CRYPTO)
 /**
  * Get the first defined opaque PSK by order of precedence:
@@ -1617,6 +1672,26 @@ MBEDTLS_CHECK_RETURN_CRITICAL
 int mbedtls_ssl_session_reset_int( mbedtls_ssl_context *ssl, int partial );
 void mbedtls_ssl_session_reset_msg_layer( mbedtls_ssl_context *ssl,
                                           int partial );
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+static inline
+void mbedtls_ssl_set_client_certificate_type( mbedtls_ssl_context* ssl, uint8_t cert_type ) {
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "Set client certificate type to %s",
+                                mbedtls_ssl_cert_type_to_str( cert_type ) ) );
+
+    ssl->session_negotiate->client_cert_type = cert_type;
+}
+#endif
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+static inline
+void mbedtls_ssl_set_server_certificate_type( mbedtls_ssl_context* ssl, uint8_t cert_type ) {
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "Set server certificate type to %s",
+                                mbedtls_ssl_cert_type_to_str( cert_type ) ) );
+
+    ssl->session_negotiate->server_cert_type = cert_type;
+}
+#endif
 
 /*
  * Send pending alert
@@ -2450,6 +2525,34 @@ int mbedtls_ssl_write_alpn_ext( mbedtls_ssl_context *ssl,
                                 unsigned char *end,
                                 size_t *out_len );
 #endif /* MBEDTLS_SSL_ALPN */
+
+#if defined(MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED)
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_write_cli_cert_type_neg_ext( mbedtls_ssl_context *ssl,
+                                             unsigned char *buf,
+                                             unsigned char *end,
+                                             size_t *out_len );
+
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_parse_cli_cert_type_neg_ext( mbedtls_ssl_context *ssl,
+                                             const unsigned char *buf,
+                                             const unsigned char *end );
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_write_srv_cert_type_neg_ext( mbedtls_ssl_context *ssl,
+                                             unsigned char *buf,
+                                             unsigned char *end,
+                                             size_t *out_len );
+
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_parse_srv_cert_type_neg_ext( mbedtls_ssl_context *ssl,
+                                             const unsigned char *buf,
+                                             const unsigned char *end );
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+#endif
 
 #if defined(MBEDTLS_TEST_HOOKS)
 int mbedtls_ssl_check_dtls_clihlo_cookie(

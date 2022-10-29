@@ -623,6 +623,24 @@ static int ssl_write_client_hello_body( mbedtls_ssl_context *ssl,
             return( ret );
         p += output_len;
     }
+
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+    /* Write client certificate type negotiation extension */
+    ret = mbedtls_ssl_write_cli_cert_type_neg_ext( ssl, p, end, &output_len );
+    if( ret != 0 ) {
+        return( ret );
+    }
+    p += output_len;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    /* Write server certificate type negotiation extension */
+    ret = mbedtls_ssl_write_srv_cert_type_neg_ext( ssl, p, end, &output_len );
+    if( ret != 0 ) {
+        return( ret );
+    }
+    p += output_len;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
 #endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
 #if defined(MBEDTLS_SSL_PROTO_TLS1_2)

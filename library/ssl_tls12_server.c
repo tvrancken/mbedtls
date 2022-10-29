@@ -1503,6 +1503,30 @@ read_record_header:
                 break;
 #endif /* MBEDTLS_SSL_DTLS_SRTP */
 
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+            case MBEDTLS_TLS_EXT_CLI_CERT_TYPE:
+                MBEDTLS_SSL_DEBUG_MSG( 3, ( "found client_certificate_type negotiation extension" ) );
+
+                ssl->handshake->cli_exts |= MBEDTLS_SSL_EXT_CLI_CERT_TYPE;
+
+                ret = mbedtls_ssl_parse_cli_cert_type_neg_ext( ssl, ext + 4, ext + 4 + ext_size );
+                if( ret != 0 )
+                    return( ret );
+                break;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+            case MBEDTLS_TLS_EXT_SERV_CERT_TYPE:
+                MBEDTLS_SSL_DEBUG_MSG( 3, ( "found server_certificate_type negotiation extension" ) );
+
+                ssl->handshake->cli_exts |= MBEDTLS_SSL_EXT_SERV_CERT_TYPE;
+
+                ret = mbedtls_ssl_parse_srv_cert_type_neg_ext( ssl, ext + 4, ext + 4 + ext_size );
+                if( ret != 0 )
+                    return( ret );
+                break;
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+
             default:
                 MBEDTLS_SSL_DEBUG_MSG( 3, ( "unknown extension found: %u (ignoring)",
                                ext_id ) );
@@ -2389,6 +2413,25 @@ static int ssl_write_server_hello( mbedtls_ssl_context *ssl )
     ssl_write_use_srtp_ext( ssl, p + 2 + ext_len, &olen );
     ext_len += olen;
 #endif
+
+#if defined(MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED)
+#if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)
+
+    if( ( ret = mbedtls_ssl_write_cli_cert_type_neg_ext( ssl, p + 2 + ext_len, end, &olen ) )
+        != 0 )
+        return ret;
+
+    ext_len += olen;
+#endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
+    if( ( ret = mbedtls_ssl_write_srv_cert_type_neg_ext( ssl, p + 2 + ext_len, end, &olen ) )
+        != 0 )
+        return ret;
+
+    ext_len += olen;
+#endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+#endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
 
     MBEDTLS_SSL_DEBUG_MSG( 3, ( "server hello, total extension length: %" MBEDTLS_PRINTF_SIZET,
                                 ext_len ) );
