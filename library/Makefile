@@ -186,6 +186,7 @@ OBJS_TLS= \
 	  ssl_tls13_client.o \
 	  ssl_tls13_server.o \
 	  ssl_tls13_generic.o \
+	  quantum_relief.o \
 	  # This line is intentionally left blank
 
 .SILENT:

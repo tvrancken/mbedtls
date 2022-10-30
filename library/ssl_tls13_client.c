@@ -1156,6 +1156,20 @@ int mbedtls_ssl_tls13_write_client_hello_exts( mbedtls_ssl_context *ssl,
         p += ext_len;
     }
 
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+    /* Write quantum_relief extension
+     *
+     * The Quantum Relief extension is optional but only valid under
+     * TLS 1.3.
+     */
+    ret = mbedtls_ssl_write_quantum_relief_ext( ssl, p, end, &ext_len );
+
+    if( ret != 0 ) {
+        return( ret );
+    }
+
+    p += ext_len;
+#endif /* MBEDTLS_QUANTUM_RELIEF_C */
 #if defined(MBEDTLS_KEY_EXCHANGE_SOME_PSK_ENABLED)
     /* For PSK-based key exchange we need the pre_shared_key extension
      * and the psk_key_exchange_modes extension.
@@ -1741,7 +1755,7 @@ static int ssl_tls13_parse_server_hello( mbedtls_ssl_context *ssl,
 #endif /* MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION */
 
 #if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
-        case MBEDTLS_TLS_EXT_SRV_CERT_TYPE:
+        case MBEDTLS_TLS_EXT_SERV_CERT_TYPE:
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "found server_certificate_type negotiation extension" ) );
 
             if( ( ret = mbedtls_ssl_parse_srv_cert_type_neg_ext( ssl, p, extension_data_end ) ) != 0 ) {
@@ -1751,6 +1765,17 @@ static int ssl_tls13_parse_server_hello( mbedtls_ssl_context *ssl,
             break;
 #endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 #endif
+
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+        case MBEDTLS_TLS_EXT_QUANTUM_RELIEF:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "found quantum_relief extension" ) );
+
+            if( ( ret = mbedtls_ssl_parse_quantum_relief_ext( ssl, p, extension_data_end ) ) != 0 ) {
+                MBEDTLS_SSL_DEBUG_RET(1, ( "mbedtls_ssl_parse_quantum_relief_ext" ), ret );
+                return( ret );
+            }
+            break;
+#endif /* MBEDTLS_QUANTUM_RELIEF_C */
 
             default:
                 MBEDTLS_SSL_DEBUG_MSG(

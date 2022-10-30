@@ -1676,10 +1676,25 @@ static int ssl_tls13_parse_client_hello( mbedtls_ssl_context *ssl,
                     return( ret );
                 }
 
-                ssl->handshake->extensions_present |= MBEDTLS_SSL_EXT_SRV_CERT_TYPE;
+                ssl->handshake->extensions_present |= MBEDTLS_SSL_EXT_SERV_CERT_TYPE;
                 break;
 #endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 #endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
+
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+            case MBEDTLS_TLS_EXT_QUANTUM_RELIEF:
+                MBEDTLS_SSL_DEBUG_MSG( 3, ( "found quantum_relief extension" ) );
+
+                ret = mbedtls_ssl_parse_quantum_relief_ext( ssl, p, extension_data_end );
+
+                if( ret != 0 ) {
+                    MBEDTLS_SSL_DEBUG_RET( 1, ( "mbedtls_ssl_parse_quantum_relief_ext" ), ret );
+                    return( ret );
+                }
+
+                ssl->handshake->extensions_present |= MBEDTLS_SSL_EXT_QUANTUM_RELIEF;
+                break;
+#endif /* MBEDTLS_QUANTUM_RELIEF_C */
 
             default:
                 MBEDTLS_SSL_DEBUG_MSG( 3,
@@ -2183,6 +2198,15 @@ static int ssl_tls13_write_server_hello_body( mbedtls_ssl_context *ssl,
             return( ret );
         p += output_len;
     }
+
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+    if( ( ret = mbedtls_ssl_write_quantum_relief_ext( ssl, p, end, &output_len ) ) != 0 )
+    {
+        MBEDTLS_SSL_DEBUG_RET( 1, "mbedtls_ssl_write_quantum_relief_ext", ret );
+        return( ret );
+    }
+    p += output_len;
+#endif
 
 #if defined(MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED)
 #if defined(MBEDTLS_SSL_CLI_CERTIFICATE_TYPE_NEGOTIATION)

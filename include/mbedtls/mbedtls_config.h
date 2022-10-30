@@ -3320,6 +3320,26 @@
  */
 #define MBEDTLS_X509_CSR_WRITE_C
 
+/**
+ * \def MBEDTLS_QUANTUM_RELIEF_C
+ *
+ * Enable the Quantum Relief extension (RFCxxxx -> TODO).
+ *
+ * Module:  library/quantum_relief.c
+ * Caller:  library/ssl*_client.c
+ *          library/ssl*_server.c
+ *
+ * Requires: MBEDTLS_SSL_PROTO_TLS1_3 and at least one of
+ *           the MBEDTLS_SSL_QR_METHOD_XXX defines
+ *
+ * This module is required for quantum hardening TLS.
+ * Comment this macro to disable support for the Quantum Relief extension.
+ * The Quantum Relief extension enables the negotiation of mechanisms that
+ * harden the TLS handshake against quantum computing attacks.
+ * See https://datatracker.ietf.org/doc/html/draft-vanrein-tls-kdh
+ */
+#define MBEDTLS_QUANTUM_RELIEF_C
+
 /** \} name SECTION: mbed TLS modules */
 
 /**

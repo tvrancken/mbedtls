@@ -103,6 +103,7 @@
 #define MBEDTLS_SSL_EXT_POST_HANDSHAKE_AUTH         ( 1 << 19 )
 #define MBEDTLS_SSL_EXT_SIG_ALG_CERT                ( 1 << 20 )
 #define MBEDTLS_SSL_EXT_KEY_SHARE                   ( 1 << 21 )
+#define MBEDTLS_SSL_EXT_QUANTUM_RELIEF              ( 1 << 22 )
 
 /*
  * Helper macros for function call with return check.
@@ -2553,6 +2554,19 @@ int mbedtls_ssl_parse_srv_cert_type_neg_ext( mbedtls_ssl_context *ssl,
                                              const unsigned char *end );
 #endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 #endif
+
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_write_quantum_relief_ext( mbedtls_ssl_context *ssl,
+                                          unsigned char *buf,
+                                          unsigned char *end,
+                                          size_t *out_len );
+
+MBEDTLS_CHECK_RETURN_CRITICAL
+int mbedtls_ssl_parse_quantum_relief_ext( mbedtls_ssl_context *ssl,
+                                          const unsigned char *buf,
+                                          const unsigned char *end );
+#endif /* MBEDTLS_QUANTUM_RELIEF_C */
 
 #if defined(MBEDTLS_TEST_HOOKS)
 int mbedtls_ssl_check_dtls_clihlo_cookie(

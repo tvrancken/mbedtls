@@ -52,6 +52,10 @@
 #include "mbedtls/platform_time.h"
 #endif
 
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+#include "mbedtls/quantum_relief.h"
+#endif
+
 #include "psa/crypto.h"
 
 /*
@@ -581,6 +585,8 @@
 #define MBEDTLS_TLS_EXT_POST_HANDSHAKE_AUTH         49 /* RFC 8446 TLS 1.3 */
 #define MBEDTLS_TLS_EXT_SIG_ALG_CERT                50 /* RFC 8446 TLS 1.3 */
 #define MBEDTLS_TLS_EXT_KEY_SHARE                   51 /* RFC 8446 TLS 1.3 */
+
+#define MBEDTLS_TLS_EXT_QUANTUM_RELIEF              255 /* TLS 1.3 https://datatracker.ietf.org/doc/html/draft-vanrein-tls-kdh */
 
 /* The value of the CID extension is still TBD as of
  * draft-ietf-tls-dtls-connection-id-05
@@ -1238,6 +1244,10 @@ struct mbedtls_ssl_session
 #if defined(MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION)
     uint8_t server_cert_type;   /*!< RFC7250 server certificate type */
 #endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
+
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+    mbedtls_qr_method_t qr_method; /*!< RFCxxxx TODO quantum relief method */
+#endif
 };
 
 /*
@@ -1569,6 +1579,12 @@ struct mbedtls_ssl_config
 
 #if defined(MBEDTLS_DHM_C) && defined(MBEDTLS_SSL_CLI_C)
     unsigned int MBEDTLS_PRIVATE(dhm_min_bitlen);    /*!< min. bit length of the DHM prime   */
+#endif
+
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+    mbedtls_qr_method_t MBEDTLS_PRIVATE(qr_method);     /*!< Quantum Relief method identifier.
+                                                         * This field should only be set via
+                                                         * mbedtls_ssl_conf_qr_method() */
 #endif
 
     /** User data pointer or handle.
@@ -3712,6 +3728,22 @@ void mbedtls_ssl_conf_srv_cert_types( mbedtls_ssl_config *conf,
                                       const mbedtls_ssl_octet_list_t* cert_types );
 #endif /* MBEDTLS_SSL_SRV_CERTIFICATE_TYPE_NEGOTIATION */
 #endif /* MBEDTLS_KEY_EXCHANGE_WITH_CERT_ENABLED */
+
+#if defined(MBEDTLS_QUANTUM_RELIEF_C)
+/**
+ * \brief           Configure the Quantum Relief method to propose to the server.
+ *
+ * \param conf      The SSL configuration to use.
+ * \param qr_method The QR method identifier. Supported values are available
+ *                  as \c mbedtls_qr_method_t
+ *
+ * \note            This setter must only be called on the client
+ *
+ * \return          0 on success, MBEDTLS_ERR_SSL_BAD_CONFIG if
+ *                  called on the server.
+ */
+int mbedtls_ssl_conf_qr_method( mbedtls_ssl_config* conf, mbedtls_qr_method_t qr_method );
+#endif
 
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
 /**
