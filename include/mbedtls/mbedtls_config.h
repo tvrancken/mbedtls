@@ -3340,6 +3340,20 @@
  */
 #define MBEDTLS_QUANTUM_RELIEF_C
 
+/**
+ * \def MBEDTLS_QR_METHOD_KDH_C
+ *
+ * Enable support for the TLS-KDH Quantum Relief mechanism.
+ *
+ * Module:  library/quantum_relief_kdh.c
+ *
+ * Requires: MBEDTLS_QUANTUM_RELIEF_C
+ *
+ * Comment this macro to disable support for the TLS-KDH Quantum Relief mechanism.
+ * See https://datatracker.ietf.org/doc/html/draft-vanrein-tls-kdh
+ */
+#define MBEDTLS_QR_METHOD_KDH_C
+
 /** \} name SECTION: mbed TLS modules */
 
 /**

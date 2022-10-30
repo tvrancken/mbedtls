@@ -26,25 +26,16 @@
 #if defined(MBEDTLS_QUANTUM_RELIEF_C)
 #if defined(MBEDTLS_SSL_PROTO_TLS1_3)
 
-#include <assert.h>
-
 #include "mbedtls/platform.h"
-
 #include "mbedtls/ssl.h"
-#include "mbedtls/quantum_relief.h"
-
-//---------
-#include "ssl_client.h"
-#include "ssl_debug_helpers.h"
-#include "ssl_misc.h"
-
 #include "mbedtls/debug.h"
 #include "mbedtls/error.h"
-#include "mbedtls/platform_util.h"
 #include "mbedtls/version.h"
-#include "mbedtls/constant_time.h"
+#include "mbedtls/quantum_relief.h"
 
-#include <string.h>
+#include "quantum_relief_kdh.h"
+#include "ssl_debug_helpers.h"
+
 
 /*** Specific Quantum Relief method handling ***/
 /* The implementation of specific quantum relief methods should be
@@ -114,6 +105,13 @@ int mbedtls_ssl_write_quantum_relief_ext( mbedtls_ssl_context *ssl,
                 MBEDTLS_SSL_DEBUG_MSG( 3, ( "Quantum Relief method was set to 'None'. "
                                             "Therefore, we don't send this extension." ) );
                 return( 0 );
+#if defined(MBEDTLS_QR_METHOD_KDH_C)
+            case MBEDTLS_QR_METHOD_KDH:
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "Received instructions to propose a Quantum Relief method "
+                                            "based on kerberized Diffie-Hellman (KDH)." ) );
+
+                return mbedtls_qr_init_kdh( ssl, buf, end, out_len );
+#endif /* MBEDTLS_QR_METHOD_KDH_C */
             default:
                 MBEDTLS_SSL_DEBUG_MSG( 3, ( "Unkown Quantum Relief method specified. "
                                             "Therefore, we don't send this extension. "
@@ -135,6 +133,13 @@ int mbedtls_ssl_write_quantum_relief_ext( mbedtls_ssl_context *ssl,
         }
 
         switch( ssl->session_negotiate->qr_method ) {
+#if defined(MBEDTLS_QR_METHOD_KDH_C)
+            case MBEDTLS_QR_METHOD_KDH:
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "Confirming Quantum Relief method based on "
+                                            "kerberized Diffie-Hellman (KDH)." ) );
+
+                return mbedtls_qr_confirm_kdh( ssl, buf, end, out_len );
+#endif /* MBEDTLS_QR_METHOD_KDH_C */
             case MBEDTLS_QR_METHOD_NONE:
                 /* Should not happen since the client is not allowed to
                  * advertise method None according to spec. */
@@ -178,6 +183,12 @@ int mbedtls_ssl_parse_quantum_relief_ext( mbedtls_ssl_context *ssl,
          */
 
         switch( qr_method ) {
+#if defined(MBEDTLS_QR_METHOD_KDH_C)
+            case MBEDTLS_QR_METHOD_KDH:
+                MBEDTLS_SSL_DEBUG_MSG( 1, (" Received Quantum Relief method request based on kerberized Diffie-Hellman (KDH). ") );
+
+                return mbedtls_qr_proc_kdh_server( ssl, buf, end );
+#endif /* MBEDTLS_QR_METHOD_KDH_C */
             case MBEDTLS_QR_METHOD_NONE:
                 /* Illegal value. The client is not supposed to advertise
                  * QR method 'None'.
@@ -205,6 +216,12 @@ int mbedtls_ssl_parse_quantum_relief_ext( mbedtls_ssl_context *ssl,
         }
 
         switch( qr_method ) {
+#if defined(MBEDTLS_QR_METHOD_KDH_C)
+            case MBEDTLS_QR_METHOD_KDH:
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "Received Quantum Relief method confirmation for kerberized Diffie-Hellman (KDH)." ) );
+
+                return mbedtls_qr_proc_kdh_client( ssl, buf, end );
+#endif /* MBEDTLS_QR_METHOD_KDH_C */
             case MBEDTLS_QR_METHOD_NONE:
                 /* Illegal state. The server is not supposed to
                  * confirm a 'None' method since we (as client) are
