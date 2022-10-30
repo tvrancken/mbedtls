@@ -1205,6 +1205,66 @@ int mbedtls_x509write_crt_pem( mbedtls_x509write_cert *ctx, unsigned char *buf, 
 #endif /* MBEDTLS_PEM_WRITE_C */
 #endif /* MBEDTLS_X509_CRT_WRITE_C */
 
+#if defined(MBEDTLS_SSL_RAW_PUBLIC_KEYS)
+/**
+ * \brief          Parse one DER-encoded or one PEM-encoded raw public-key
+ *                 into an X.509 credential container.
+ *
+ *                 PEM encoded public keys may be interleaved by other data
+ *                 such as human readable descriptions of their content, as
+ *                 long as the public keys are enclosed in the PEM specific
+ *                 '-----{BEGIN/END} PUBLIC KEY-----' delimiters.
+ *
+ *                 Use with mbedtls_ssl_conf_cli_cert_types() and
+ *                 mbedtls_ssl_conf_srv_cert_types() to negotiate other
+ *                 certificate types than the default X.509.
+ *                 See RFC7250 for more information on raw public-keys.
+ *
+ * \param rawpk    The container to which to add the parsed raw public-key.
+ * \param buf      The buffer holding the raw public-key data in PEM or DER format.
+ *                 For both DER and PEM encoding, the buffer must comprise of
+ *                 exactly one raw public-key.
+ * \param buflen   The size of \p buf, including the terminating \c NULL byte
+ *                 in case of PEM encoded data.
+ *
+ * \return         \c 0 if the public key was parsed successfully.
+ * \return         A negative X509 or PEM error code otherwise.
+ *
+ */
+int mbedtls_x509_rawpk_parse( mbedtls_x509_crt *rawpk, const unsigned char *buf, size_t buflen );
+
+#if defined(MBEDTLS_FS_IO)
+/**
+ * \brief          Load one raw public-key from file into an X.509 credential
+ *                 container. Currently only supports keys that are encoded in PEM format.
+ *                 Use with mbedtls_ssl_conf_cli_cert_types() and mbedtls_ssl_conf_srv_cert_types()
+ *                 to negotiate other certificate types than the default
+ *                 X.509. See RFC7250 for more information on raw public-keys.
+ *
+ * \param rawpk    Points to the container for the raw public-key.
+ * \param path     Filename to read the raw public-key from.
+ *
+ * \return         0 if parsed successfully, or a specific X509 or PEM error code.
+ */
+int mbedtls_x509_rawpk_parse_file( mbedtls_x509_crt *rawpk, const char *path );
+#endif /* MBEDTLS_FS_IO */
+
+/**
+ * \brief          Load one raw public-key encoded in DER format into
+ *                 an X.509 credential container. Use with
+ *                 mbedtls_ssl_conf_cli_cert_types() and mbedtls_ssl_conf_srv_cert_types()
+ *                 to negotiate other certificate types than the default
+ *                 X.509. See RFC7250 for more information on raw public-keys.
+ *
+ * \param rawpk    Points to the container for the raw public-key.
+ * \param buf      Memory buffer to read the raw public-key from.
+ * \param buflen   The size of \p buf.
+ *
+ * \return         MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE
+ */
+int mbedtls_x509_rawpk_parse_der( mbedtls_x509_crt *rawpk, const unsigned char *buf, size_t buflen );
+#endif /* MBEDTLS_SSL_RAW_PUBLIC_KEYS */
+
 /** \} addtogroup x509_module */
 
 #ifdef __cplusplus

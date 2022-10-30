@@ -3419,4 +3419,153 @@ void mbedtls_x509_crt_restart_free( mbedtls_x509_crt_restart_ctx *ctx )
 }
 #endif /* MBEDTLS_ECDSA_C && MBEDTLS_ECP_RESTARTABLE */
 
+/** Raw public-key parsing **/
+#if defined(MBEDTLS_SSL_RAW_PUBLIC_KEYS)
+/*
+ * Parse a raw public-key from a buffer
+ */
+int mbedtls_x509_rawpk_parse( mbedtls_x509_crt *rawpk,
+                            const unsigned char *buf,
+                            size_t buflen )
+{
+#if defined(MBEDTLS_PEM_PARSE_C)
+    int success = 0, first_error = 0, total_failed = 0;
+    int buf_format = MBEDTLS_X509_FORMAT_DER;
+#endif
+
+    /*
+     * Check for valid input
+     */
+    if( rawpk == NULL || buf == NULL )
+        return( MBEDTLS_ERR_X509_BAD_INPUT_DATA );
+
+    /*
+     * Determine buffer content. Buffer contains either one DER certificate or
+     * one or more PEM certificates.
+     */
+#if defined(MBEDTLS_PEM_PARSE_C)
+    if( buflen != 0 && buf[buflen - 1] == '\0' &&
+        strstr( (const char *) buf, "-----BEGIN PUBLIC KEY-----" ) != NULL )
+    {
+        buf_format = MBEDTLS_X509_FORMAT_PEM;
+    }
+
+    if( buf_format == MBEDTLS_X509_FORMAT_DER )
+        return mbedtls_x509_rawpk_parse_der( rawpk, buf, buflen );
+#else
+    return mbedtls_x509_rawpk_parse_der( rawpk, buf, buflen );
+#endif
+
+#if defined(MBEDTLS_PEM_PARSE_C)
+    if( buf_format == MBEDTLS_X509_FORMAT_PEM )
+    {
+        int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+        mbedtls_pem_context pem;
+
+        /* 1 rather than 0 since the terminating NULL byte is counted in */
+        while( buflen > 1 )
+        {
+            size_t use_len;
+            mbedtls_pem_init( &pem );
+
+            /* If we get there, we know the string is null-terminated */
+            ret = mbedtls_pem_read_buffer( &pem,
+                           "-----BEGIN PUBLIC KEY-----",
+                           "-----END PUBLIC KEY-----",
+                           buf, NULL, 0, &use_len );
+
+            if( ret == 0 )
+            {
+                /*
+                 * Was PEM encoded
+                 */
+                buflen -= use_len;
+                buf += use_len;
+            }
+            else if( ret == MBEDTLS_ERR_PEM_BAD_INPUT_DATA )
+            {
+                return( ret );
+            }
+            else if( ret != MBEDTLS_ERR_PEM_NO_HEADER_FOOTER_PRESENT )
+            {
+                mbedtls_pem_free( &pem );
+
+                /*
+                 * PEM header and footer were found
+                 */
+                buflen -= use_len;
+                buf += use_len;
+
+                if( first_error == 0 )
+                    first_error = ret;
+
+                total_failed++;
+                continue;
+            }
+            else
+                break;
+
+            ret = mbedtls_x509_rawpk_parse_der( rawpk, pem.buf, pem.buflen );
+
+            mbedtls_pem_free( &pem );
+
+            if( ret != 0 )
+            {
+                /*
+                 * Quit parsing on a memory error
+                 */
+                if( ret == MBEDTLS_ERR_X509_ALLOC_FAILED )
+                    return( ret );
+
+                if( first_error == 0 )
+                    first_error = ret;
+
+                total_failed++;
+                continue;
+            }
+
+            success = 1;
+        }
+    }
+
+    if( success )
+        return( total_failed );
+    else if( first_error )
+        return( first_error );
+    else
+        return( MBEDTLS_ERR_X509_CERT_UNKNOWN_FORMAT );
+#endif /* MBEDTLS_PEM_PARSE_C */
+}
+
+#if defined(MBEDTLS_FS_IO)
+/*
+ * Load a raw public-key from a file
+ */
+int mbedtls_x509_rawpk_parse_file( mbedtls_x509_crt *rawpk, const char *path )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    size_t n;
+    unsigned char *buf;
+
+    if( ( ret = mbedtls_pk_load_file( path, &buf, &n ) ) != 0 )
+        return( ret );
+
+    ret = mbedtls_x509_rawpk_parse( rawpk, buf, n );
+
+    mbedtls_platform_zeroize( buf, n );
+    mbedtls_free( buf );
+
+    return( ret );
+}
+#endif /* MBEDTLS_FS_IO */
+
+int mbedtls_x509_rawpk_parse_der( mbedtls_x509_crt *rawpk,
+                                  const unsigned char *buf,
+                                  size_t buflen )
+{
+    //return( mbedtls_x509_crt_parse_der_internal( rawpk, buf, buflen, 1, NULL, NULL ) );
+    return( MBEDTLS_ERR_X509_FEATURE_UNAVAILABLE );
+}
+#endif /* MBEDTLS_SSL_RAW_PUBLIC_KEYS */
+
 #endif /* MBEDTLS_X509_CRT_PARSE_C */
